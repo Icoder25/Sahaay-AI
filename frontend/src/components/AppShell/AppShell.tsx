@@ -76,7 +76,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               ))}
             </select>
 
-            <button type="button" className={styles.logout} onClick={logout}>
+            <button
+              type="button"
+              className={styles.logout}
+              onClick={() => {
+                void logout().then(() => {
+                  window.location.href = "/login";
+                });
+              }}
+            >
               {tr("navLogout")}
             </button>
           </div>

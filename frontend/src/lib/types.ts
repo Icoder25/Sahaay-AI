@@ -33,6 +33,7 @@ export interface ChatResponse {
 
 export interface HealthResponse {
   status: string;
+  database?: string;
   services: Record<string, boolean>;
 }
 

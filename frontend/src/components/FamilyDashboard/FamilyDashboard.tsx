@@ -1,20 +1,16 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/contexts/I18nContext";
-import { ActivityTimeline } from "@/components/ActivityTimeline/ActivityTimeline";
-import { HealthScoreCard } from "@/components/HealthScoreCard/HealthScoreCard";
-import { getRoutines } from "@/lib/api";
-import { computeHealthScore, isToday } from "@/lib/healthScore";
+import { useAuth } from "@/contexts/AuthContext";
 import {
-  addElderProfile,
-  getActivities,
-  getNotifications,
-  getWellnessChecks,
-  type ElderProfile,
-} from "@/lib/store";
+  createElder,
+  listElders,
+  listReminders,
+  reminderToRoutine,
+} from "@/lib/api";
 import type { Routine } from "@/lib/types";
-import { useFamily } from "@/hooks/useFamily";
 import styles from "./FamilyDashboard.module.css";
 
 function SummaryRow({
@@ -36,123 +32,99 @@ function SummaryRow({
   );
 }
 
-function ElderCard({ profile }: { profile: ElderProfile }) {
+function ElderCard({
+  elderId,
+  displayName,
+}: {
+  elderId: string;
+  displayName: string;
+}) {
   const { tr } = useI18n();
   const [routines, setRoutines] = useState<Routine[]>([]);
 
   useEffect(() => {
-    getRoutines(profile.sessionId)
-      .then(setRoutines)
+    listReminders(elderId)
+      .then((rows) => setRoutines(rows.map(reminderToRoutine)))
       .catch(() => setRoutines([]));
-  }, [profile.sessionId]);
+  }, [elderId]);
 
-  const activities = getActivities().filter(
-    (item) => item.elderProfileId === profile.id,
-  );
-  const wellness = getWellnessChecks().filter(
-    (item) => item.elderProfileId === profile.id,
-  );
-  const health = computeHealthScore(wellness);
-
-  const todayActivities = activities.filter((item) => isToday(item.timestamp));
-  const todayWellness = wellness.find((item) => isToday(item.timestamp));
   const medicationRoutine = routines.some((r) => r.type === "medication");
-  const medicineActivity = todayActivities.some(
-    (item) =>
-      item.activityType === "reminder" ||
-      item.title.toLowerCase().includes("medicine"),
-  );
-  const ateWell = todayWellness
-    ? todayWellness.appetite === "good" || todayWellness.appetite === "normal"
-    : null;
-  const sosToday = todayActivities.some((item) => item.activityType === "sos");
 
   return (
     <article className={styles.section}>
-      <h3 className={styles.sectionTitle}>{profile.displayName}</h3>
+      <h3 className={styles.sectionTitle}>{displayName}</h3>
 
       <div className={styles.summaryGrid}>
         <SummaryRow
           label={tr("medicinesToday")}
-          value={
-            medicineActivity
-              ? tr("yes")
-              : medicationRoutine
-                ? tr("no")
-                : tr("unknown")
-          }
-          alert={medicationRoutine && !medicineActivity}
+          value={medicationRoutine ? `${routines.filter((r) => r.type === "medication").length} set` : tr("unknown")}
         />
         <SummaryRow
-          label={tr("ateToday")}
-          value={ateWell === null ? tr("unknown") : ateWell ? tr("yes") : tr("no")}
-          alert={ateWell === false}
-        />
-        <SummaryRow
-          label={tr("feelingToday")}
-          value={todayWellness?.mood ?? tr("unknown")}
-        />
-        <SummaryRow
-          label={tr("unusualToday")}
-          value={sosToday ? tr("yes") : tr("no")}
-          alert={sosToday}
-        />
-        <SummaryRow
-          label={tr("needsAttention")}
-          value={health.needsAttention || sosToday ? tr("yes") : tr("no")}
-          alert={health.needsAttention || sosToday}
+          label={tr("yourRoutines")}
+          value={String(routines.length)}
         />
       </div>
 
-      <div style={{ marginTop: 16 }}>
-        <HealthScoreCard result={health} />
-      </div>
+      {routines.length > 0 ? (
+        <ul style={{ marginTop: 12, paddingLeft: 18 }}>
+          {routines.slice(0, 6).map((routine) => (
+            <li key={`${routine.name}-${routine.timing}`}>
+              {routine.name}
+              {routine.timing ? ` · ${routine.timing}` : ""}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p style={{ marginTop: 12 }}>No reminders yet for this elder.</p>
+      )}
     </article>
   );
 }
 
 export function FamilyDashboard() {
   const { tr } = useI18n();
-  const family = useFamily();
-  const [refreshKey, setRefreshKey] = useState(0);
+  const router = useRouter();
+  const { care, isAuthenticated, user } = useAuth();
+  const [elders, setElders] = useState<Array<{ id: string; full_name: string }>>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!care?.familyId) return;
+    const rows = await listElders(care.familyId);
+    setElders(rows.map((e) => ({ id: e.id, full_name: e.full_name })));
+  }, [care?.familyId]);
 
   useEffect(() => {
-    function refresh() {
-      setRefreshKey((value) => value + 1);
-    }
-    window.addEventListener("sahaay-store", refresh);
-    return () => window.removeEventListener("sahaay-store", refresh);
-  }, []);
-
-  const notifications = useMemo(
-    () => getNotifications().slice(0, 8),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [refreshKey],
-  );
-
-  const allActivities = useMemo(() => {
-    if (!family) {
-      return [];
-    }
-    const ids = new Set(family.elderProfiles.map((profile) => profile.id));
-    return getActivities().filter((item) => ids.has(item.elderProfileId));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [family, refreshKey]);
-
-  function handleAddElder(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const name = String(form.get("elderName") ?? "").trim();
-    const sessionId = String(form.get("sessionId") ?? "").trim();
-    if (!name) {
+    if (!isAuthenticated) {
+      router.replace("/login");
       return;
     }
-    addElderProfile(name, sessionId || crypto.randomUUID());
-    window.dispatchEvent(new Event("sahaay-store"));
-    event.currentTarget.reset();
+    refresh().catch((err) =>
+      setError(err instanceof Error ? err.message : "Failed to load elders"),
+    );
+  }, [isAuthenticated, refresh, router]);
+
+  async function handleAddElder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!care?.familyId) return;
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("elderName") ?? "").trim();
+    if (!name) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await createElder(care.familyId, { full_name: name });
+      event.currentTarget.reset();
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not add elder");
+    } finally {
+      setBusy(false);
+    }
   }
 
-  if (!family) {
+  if (!care) {
     return (
       <div className={styles.page}>
         <p>{tr("noElders")}</p>
@@ -164,19 +136,23 @@ export function FamilyDashboard() {
     <div className={styles.page}>
       <div className={styles.header}>
         <h1 className={styles.title}>{tr("familyWelcome")}</h1>
-        {family.inviteCode ? (
-          <p className={styles.invite}>
-            {tr("inviteShare")}: <strong>{family.inviteCode}</strong>
-          </p>
-        ) : null}
+        <p className={styles.invite}>
+          Signed in as <strong>{user?.fullName ?? user?.email}</strong>
+        </p>
       </div>
 
-      {family.elderProfiles.length === 0 ? (
+      {error ? <p className={styles.notificationBody}>{error}</p> : null}
+
+      {elders.length === 0 ? (
         <p>{tr("noElders")}</p>
       ) : (
         <div className={styles.grid}>
-          {family.elderProfiles.map((profile) => (
-            <ElderCard key={profile.id} profile={profile} />
+          {elders.map((elder) => (
+            <ElderCard
+              key={elder.id}
+              elderId={elder.id}
+              displayName={elder.full_name}
+            />
           ))}
         </div>
       )}
@@ -190,39 +166,10 @@ export function FamilyDashboard() {
             placeholder={tr("elderName")}
             required
           />
-          <input
-            name="sessionId"
-            className={styles.input}
-            placeholder={tr("sessionId")}
-          />
-          <button type="submit" className={styles.button}>
-            {tr("addElder")}
+          <button type="submit" className={styles.button} disabled={busy}>
+            {busy ? "Saving…" : tr("addElder")}
           </button>
         </form>
-      </section>
-
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{tr("notifications")}</h2>
-        <div className={styles.notifications}>
-          {notifications.length === 0 ? (
-            <p className={styles.notificationBody}>No notifications yet.</p>
-          ) : (
-            notifications.map((item) => (
-              <div
-                key={item.id}
-                className={`${styles.notification} ${!item.isRead ? styles.notificationUnread : ""}`}
-              >
-                <div className={styles.notificationTitle}>{item.title}</div>
-                <p className={styles.notificationBody}>{item.body}</p>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{tr("activityTimeline")}</h2>
-        <ActivityTimeline activities={allActivities} />
       </section>
     </div>
   );

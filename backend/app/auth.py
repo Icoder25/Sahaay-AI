@@ -14,12 +14,21 @@ from app.db import get_db
 from app.models import Profile
 
 bearer = HTTPBearer(auto_error=False)
+_jwks_clients: dict[str, PyJWKClient] = {}
 
 
 @dataclass(frozen=True)
 class AuthUser:
     id: str
     email: str | None = None
+
+
+def _jwks_client(issuer: str) -> PyJWKClient:
+    client = _jwks_clients.get(issuer)
+    if client is None:
+        client = PyJWKClient(f"{issuer}/.well-known/jwks.json", cache_keys=True)
+        _jwks_clients[issuer] = client
+    return client
 
 
 def _decode(token: str) -> dict[str, Any]:
@@ -30,13 +39,18 @@ def _decode(token: str) -> dict[str, Any]:
     try:
         header = jwt.get_unverified_header(token)
         algorithm = header.get("alg", "RS256")
-        key = PyJWKClient(f"{issuer}/.well-known/jwks.json").get_signing_key_from_jwt(token).key
+        key = _jwks_client(issuer).get_signing_key_from_jwt(token).key
+        # leeway absorbs clock skew vs Supabase (iat/nbf/exp).
+        # verify_iat=False avoids ImmatureSignatureError when Supabase clocks
+        # are slightly ahead of the API host.
         return jwt.decode(
             token,
             key,
             algorithms=[algorithm],
             audience=settings.supabase_jwt_audience,
             issuer=issuer,
+            leeway=300,
+            options={"verify_iat": False},
         )
     except jwt.PyJWTError as exc:
         raise HTTPException(401, "Invalid or expired access token") from exc

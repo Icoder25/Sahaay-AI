@@ -1,51 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChatInput } from "@/components/ChatInput/ChatInput";
 import { ChatThread } from "@/components/ChatThread/ChatThread";
 import { ElderSidebar } from "@/components/ElderSidebar/ElderSidebar";
 import { HealthIndicator } from "@/components/HealthIndicator/HealthIndicator";
 import { RoutinesPanel } from "@/components/RoutinesPanel/RoutinesPanel";
+import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/I18nContext";
-import { ensureElderProfile } from "@/hooks/useFamily";
 import {
-  getDemoReminder,
-  getRoutines,
-  resolveAudioUrl,
-  sendChat,
+  getConversation,
+  listReminders,
+  messageToUi,
+  reminderToRoutine,
+  sendConversationMessage,
 } from "@/lib/api";
 import type { Routine, UiChatMessage } from "@/lib/types";
-import { logActivity } from "@/lib/store";
-import { useSession } from "@/hooks/useSession";
 import styles from "./SahaayDemo.module.css";
 
 function createMessageId(): string {
   return crypto.randomUUID();
 }
 
-function mergeRoutines(existing: Routine[], updated: Routine[]): Routine[] {
-  const byKey = new Map<string, Routine>();
-
-  for (const routine of existing) {
-    const key = routine.id != null ? String(routine.id) : routine.name;
-    byKey.set(key, routine);
-  }
-
-  for (const routine of updated) {
-    const key = routine.id != null ? String(routine.id) : routine.name;
-    byKey.set(key, routine);
-  }
-
-  return Array.from(byKey.values()).sort((a, b) => {
-    const timeA = a.timing ?? "99:99";
-    const timeB = b.timing ?? "99:99";
-    return timeA.localeCompare(timeB);
-  });
-}
-
 export function SahaayDemo() {
+  const router = useRouter();
   const { tr } = useI18n();
-  const sessionId = useSession();
+  const { care, isAuthenticated, user } = useAuth();
   const [messages, setMessages] = useState<UiChatMessage[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -53,50 +34,52 @@ export function SahaayDemo() {
   const [reminderLoading, setReminderLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [speakEnabled, setSpeakEnabled] = useState(true);
-
-  const refreshRoutines = useCallback(async (id: string, showLoading = false) => {
-    if (showLoading) {
-      setRoutinesLoading(true);
-    }
-    try {
-      const result = await getRoutines(id);
-      setRoutines(result);
-    } catch {
-      // Routines panel can stay on last known data if refresh fails.
-    } finally {
-      if (showLoading) {
-        setRoutinesLoading(false);
-      }
-    }
-  }, []);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!sessionId) {
+    if (!isAuthenticated || !care) {
+      router.replace("/login");
       return;
     }
+    setReady(true);
+  }, [isAuthenticated, care, router]);
 
+  const refreshReminders = useCallback(async () => {
+    if (!care?.elderId) return;
+    setRoutinesLoading(true);
+    try {
+      const reminders = await listReminders(care.elderId);
+      setRoutines(reminders.map(reminderToRoutine));
+    } catch {
+      // keep last known
+    } finally {
+      setRoutinesLoading(false);
+    }
+  }, [care?.elderId]);
+
+  useEffect(() => {
+    if (!care?.conversationId) return;
     let cancelled = false;
 
-    getRoutines(sessionId)
-      .then((result) => {
-        if (!cancelled) {
-          setRoutines(result);
-        }
-      })
-      .catch(() => {
-        // Keep empty state when the backend is unavailable on first load.
-      });
+    (async () => {
+      try {
+        const conversation = await getConversation(care.conversationId);
+        if (cancelled) return;
+        setMessages(conversation.messages.map(messageToUi));
+      } catch {
+        // empty thread until first message
+      }
+      await refreshReminders();
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [care?.conversationId, refreshReminders]);
 
   const handleSend = useCallback(
     async (text: string) => {
-      if (!sessionId) {
-        return;
-      }
+      if (!care?.conversationId) return;
 
       setError(null);
       setChatLoading(true);
@@ -110,95 +93,77 @@ export function SahaayDemo() {
       setMessages((current) => [...current, userMessage]);
 
       try {
-        const response = await sendChat({
-          session_id: sessionId,
-          message: text,
-          speak: speakEnabled,
-        });
-
-        const assistantMessage: UiChatMessage = {
-          id: createMessageId(),
-          role: "assistant",
-          content: response.reply,
-          intent: response.intent,
-          citations: response.citations,
-          audioUrl: resolveAudioUrl(response.audio_url),
-          timestamp: Date.now(),
-        };
-
-        setMessages((current) => [...current, assistantMessage]);
-
-        const profile = ensureElderProfile(sessionId);
-        logActivity(
-          profile.id,
-          response.intent,
-          response.intent === "routine_update"
-            ? "Routine updated"
-            : response.intent === "question"
-              ? "Health question answered"
-              : "Chat with Sahaay",
-          text.slice(0, 120),
+        const response = await sendConversationMessage(
+          care.conversationId,
+          text,
+          { speak: speakEnabled, use_search: true },
         );
-        window.dispatchEvent(new Event("sahaay-store"));
 
-        if (response.routines_updated.length > 0) {
-          setRoutines((current) =>
-            mergeRoutines(current, response.routines_updated),
-          );
-        } else {
-          await refreshRoutines(sessionId);
-        }
+        const assistantMessage = messageToUi(response);
+        setMessages((current) => [...current, assistantMessage]);
+        await refreshReminders();
       } catch (err) {
         const message =
           err instanceof Error
             ? err.message
-            : "Something went wrong. Is the backend running on port 8000?";
+            : "Something went wrong talking to Sahaay.";
         setError(message);
       } finally {
         setChatLoading(false);
       }
     },
-    [sessionId, speakEnabled, refreshRoutines],
+    [care?.conversationId, speakEnabled, refreshReminders],
   );
 
-  const handleDemoReminder = useCallback(async () => {
-    if (!sessionId) {
-      return;
-    }
+  const handleNextReminder = useCallback(async () => {
+    if (!care?.conversationId || !care.elderId) return;
 
     setError(null);
     setReminderLoading(true);
-
     try {
-      const response = await getDemoReminder(sessionId, speakEnabled);
-      const assistantMessage: UiChatMessage = {
-        id: createMessageId(),
-        role: "assistant",
-        content: response.message,
-        intent: "chat",
-        audioUrl: resolveAudioUrl(response.audio_url),
-        timestamp: Date.now(),
-      };
-      setMessages((current) => [...current, assistantMessage]);
+      const reminders = await listReminders(care.elderId);
+      const active = reminders.find((r) => r.status === "active") ?? reminders[0];
+      if (!active) {
+        setError("No reminders yet. Ask Sahaay to help set one up in chat.");
+        return;
+      }
 
-      const profile = ensureElderProfile(sessionId);
-      logActivity(
-        profile.id,
-        "reminder",
-        "Demo reminder received",
-        response.message.slice(0, 120),
+      const timeBit = active.local_time
+        ? ` at ${active.local_time.slice(0, 5)}`
+        : "";
+      const prompt = `Please give me a warm spoken reminder now for: ${active.title}${timeBit}.`;
+      const response = await sendConversationMessage(
+        care.conversationId,
+        prompt,
+        { speak: speakEnabled, use_search: false },
       );
-      window.dispatchEvent(new Event("sahaay-store"));
+
+      setMessages((current) => [
+        ...current,
+        {
+          id: createMessageId(),
+          role: "user",
+          content: `Remind me: ${active.title}`,
+          timestamp: Date.now(),
+        },
+        messageToUi(response),
+      ]);
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Could not trigger demo reminder.";
-      setError(message);
+      setError(
+        err instanceof Error ? err.message : "Could not trigger reminder.",
+      );
     } finally {
       setReminderLoading(false);
     }
-  }, [sessionId, speakEnabled]);
+  }, [care?.conversationId, care?.elderId, speakEnabled]);
+
+  if (!ready || !care) {
+    return (
+      <div className={styles.page}>
+        <p className={styles.tagline}>Connecting to Sahaay…</p>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
@@ -209,7 +174,11 @@ export function SahaayDemo() {
           </div>
           <div>
             <h1 className={styles.title}>{tr("appName")}</h1>
-            <p className={styles.tagline}>{tr("elderWelcome")}</p>
+            <p className={styles.tagline}>
+              {user?.fullName
+                ? `Namaste, ${user.fullName}`
+                : tr("elderWelcome")}
+            </p>
           </div>
         </div>
         <HealthIndicator />
@@ -233,11 +202,11 @@ export function SahaayDemo() {
         <RoutinesPanel
           routines={routines}
           isLoading={routinesLoading}
-          onDemoReminder={handleDemoReminder}
+          onDemoReminder={handleNextReminder}
           reminderLoading={reminderLoading}
         />
 
-        {sessionId ? <ElderSidebar sessionId={sessionId} /> : null}
+        <ElderSidebar sessionId={care.elderId} />
       </div>
     </div>
   );

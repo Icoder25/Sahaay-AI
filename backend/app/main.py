@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import AUDIO_DIR, BACKEND_ROOT, get_settings
 from app.db import check_db_connection, init_db
 from app.routers.api_v1 import router as api_v1_router
+from app.routers.demo import router as demo_router
 from app.schemas import HealthResponse
 
 
@@ -41,6 +42,7 @@ static_root = BACKEND_ROOT / "static"
 static_root.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_root)), name="static")
 
+app.include_router(demo_router)
 app.include_router(api_v1_router, prefix=settings.api_v1_prefix)
 
 

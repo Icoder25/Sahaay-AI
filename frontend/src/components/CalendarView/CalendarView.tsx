@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/contexts/I18nContext";
-import { getRoutines } from "@/lib/api";
-import { useSession } from "@/hooks/useSession";
+import { useAuth } from "@/contexts/AuthContext";
+import { listReminders, reminderToRoutine } from "@/lib/api";
 import type { Routine } from "@/lib/types";
 import styles from "./CalendarView.module.css";
 
@@ -26,17 +27,20 @@ function formatTime(timing: string | null | undefined): string {
 
 export function CalendarView() {
   const { tr } = useI18n();
-  const sessionId = useSession();
+  const router = useRouter();
+  const { care, isAuthenticated } = useAuth();
   const [routines, setRoutines] = useState<Routine[]>([]);
 
   useEffect(() => {
-    if (!sessionId) {
+    if (!isAuthenticated) {
+      router.replace("/login");
       return;
     }
-    getRoutines(sessionId)
-      .then(setRoutines)
+    if (!care?.elderId) return;
+    listReminders(care.elderId)
+      .then((rows) => setRoutines(rows.map(reminderToRoutine)))
       .catch(() => setRoutines([]));
-  }, [sessionId]);
+  }, [care?.elderId, isAuthenticated, router]);
 
   return (
     <div className={styles.page}>

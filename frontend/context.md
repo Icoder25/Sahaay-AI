@@ -24,21 +24,24 @@ Context for developers and AI agents working in `frontend/`. Read this before ma
 | `/elder/calendar` | Routine schedule from backend `/routines/{session_id}` |
 | `/family` | PRD success-criteria dashboard for caregivers |
 
-## Backend integration (read-only contract)
+## Backend integration (live `/api/v1`)
 
 **Base URL:** `NEXT_PUBLIC_API_BASE_URL` (default `http://localhost:8000`)
 
-```bash
-cd ../backend
-uvicorn app.main:app --reload --port 8000
-```
+Requires Supabase Auth on the backend (`SUPABASE_URL`, publishable + service keys).
 
 | Method | Path | Used by |
 |--------|------|---------|
 | `GET` | `/health` | Health indicator |
-| `POST` | `/chat` | Elder chat |
-| `GET` | `/routines/{session_id}` | Routines panel, calendar, family summary |
-| `GET` | `/reminders/demo` | Demo reminder button |
+| `POST` | `/api/v1/auth/signup` · `/login` · `/refresh` · `/logout` | Auth |
+| `GET/PATCH` | `/api/v1/auth/me` · `/profiles/me` | Profile |
+| `POST/GET` | `/api/v1/families` · `/elders` | Family bootstrap |
+| `POST/GET` | `/api/v1/conversations` · `/messages` | Elder chat |
+| `GET/POST` | `/api/v1/elders/{id}/reminders` | Routines / calendar / family |
+
+Flow: **Register/Login → bootstrap family+elder+conversation → chat & reminders via JWT.**
+
+Demo routes (`/chat`, `/routines/...`) remain on the backend but the UI no longer calls them.
 
 ### Session model
 

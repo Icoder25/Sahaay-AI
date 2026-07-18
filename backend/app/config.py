@@ -13,7 +13,9 @@ AUDIO_DIR = BACKEND_ROOT / "static" / "audio"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(BACKEND_ROOT / ".env"), env_file_encoding="utf-8", extra="ignore"
+        env_file=str(BACKEND_ROOT / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     app_env: str = "development"
@@ -22,7 +24,10 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
 
     supabase_url: str = ""
+    # Accept NEXT_PUBLIC_* aliases when pasted into backend .env
+    next_public_supabase_url: str = ""
     supabase_publishable_key: str = ""
+    next_public_supabase_publishable_key: str = ""
     supabase_service_role_key: str = ""
     supabase_db_password: str = ""
     supabase_db_host: str = "aws-0-ap-northeast-1.pooler.supabase.com"
@@ -39,6 +44,16 @@ class Settings(BaseSettings):
     firebase_credentials_json: str = ""
     redis_url: str = ""
     celery_always_eager: bool = False
+
+    def model_post_init(self, __context: object) -> None:
+        if not self.supabase_url and self.next_public_supabase_url:
+            object.__setattr__(self, "supabase_url", self.next_public_supabase_url)
+        if not self.supabase_publishable_key and self.next_public_supabase_publishable_key:
+            object.__setattr__(
+                self,
+                "supabase_publishable_key",
+                self.next_public_supabase_publishable_key,
+            )
 
     @computed_field  # type: ignore[prop-decorator]
     @property
