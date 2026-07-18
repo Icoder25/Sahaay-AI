@@ -1,0 +1,28 @@
+# Sahaay backend — copy to repo root as `.replit` for the Backend Repl
+# Monorepo layout: commands `cd backend` first.
+entrypoint = "backend/app/main.py"
+modules = ["python-3.12"]
+hidden = [".venv", "__pycache__", "**/__pycache__", "*.pyc", "backend/sahaay.db", "backend/static/audio/*.mp3"]
+
+# Dev: Run button
+run = "cd backend && pip install -r requirements.txt && mkdir -p static/audio && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+deploymentTarget = "cloudrun"
+build = ["sh", "-c", "cd backend && pip install -r requirements.txt && mkdir -p static/audio"]
+run = ["sh", "-c", "cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+
+[[ports]]
+localPort = 8000
+externalPort = 80
+
+[env]
+PYTHONUNBUFFERED = "1"
+PYTHONDONTWRITEBYTECODE = "1"
+APP_ENV = "production"
+# Set these in Replit Secrets (not here):
+# DATABASE_URL or SUPABASE_* , CORS_ORIGINS, ANTHROPIC_API_KEY, EXA_API_KEY,
+# ELEVENLABS_*, FIREBASE_CREDENTIALS_JSON, REDIS_URL
