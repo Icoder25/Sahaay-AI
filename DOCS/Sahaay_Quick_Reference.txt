@@ -1,290 +1,79 @@
-================================================================================
-                    SAHAAY: QUICK REFERENCE CARD
-                    From Hackathon Idea to Real Product
-================================================================================
+SAHAAY v1.0 — QUICK REFERENCE
+================================
 
-PROBLEM (WHO STRUGGLES)
-• 150M+ elderly in India managing medications alone
-• 50M+ caregivers spending 10+ hours/week reminding relatives
-• 5M+ adults with ADHD paralyzed by complex task apps
-• Busy families juggling multiple responsibilities
+PRODUCT
+Responsive web care platform for families and elderly loved ones.
+The product is Next.js + FastAPI; WhatsApp/Twilio is not the MVP channel.
 
-THE INSIGHT
-"People who need help most fail at reminder apps because apps require them 
-to organize themselves. Sahaay flips this: the AI does the organizing."
+CORE PROMISE
+Within 30 seconds, a family should know:
+- Were medicines and meals completed?
+- How is the elder feeling?
+- Is the routine unusual?
+- What is upcoming?
+- Is attention needed now?
 
-CORE SOLUTION: SAHAAY
-An AI companion that:
-  1. Learns your routine through 5-min WhatsApp conversation (zero forms)
-  2. Notices deviations from your baseline (drift detection)
-  3. Alerts you proactively ("You usually take medicine at 8 AM, it's 11 AM...")
-  4. Tells caregivers only when needed (privacy-first)
-  5. Works on WhatsApp + voice (no app install)
+ROLES
+Owner         Creates family, invites members, manages elders and permissions
+Family Member Views authorized care data, assigns reminders, receives alerts
+Elder         Completes tasks, answers wellness, chats, views calendar, uses SOS
 
-KEY DIFFERENTIATOR: DRIFT DETECTION
-→ Not just "Reminder at 8 AM"
-→ Instead: "You usually confirm by 9 AM. It's 11 AM and you haven't. OK?"
-→ This is what competitors can't easily copy.
+MVP
+- Supabase email/password auth, verification, reset, JWT
+- Families, invitations, members, RBAC
+- Elder profiles, emergency contacts, language/timezone
+- Reminder CRUD, recurrence, completion, calendar, escalation
+- Daily wellness and activity timeline
+- Claude conversation in English/Hindi/Gujarati
+- Exa-grounded answers with citations
+- Optional ElevenLabs spoken replies
+- Deterministic explainable health score
+- Family and elder dashboards, analytics, daily summaries
+- FCM + in-app notifications, tokens, retries
+- Durable idempotent SOS with acknowledge/resolve
+- Audit logs and RLS on every public table
 
-================================================================================
-                            8-WEEK ROADMAP
-================================================================================
+STACK
+Frontend       Next.js (existing frontend remains unchanged in backend rebuild)
+API            FastAPI under /api/v1
+Identity       Supabase Auth; FastAPI validates JWT through JWKS
+Database       Supabase Postgres with RLS
+Jobs           Redis + Celery worker/beat
+Push           Firebase Cloud Messaging
+AI             Claude + Exa + ElevenLabs
 
-WEEK 1: SETUP & PROBLEM VALIDATION (15 hours)
-  ✓ Create Twilio account (free trial)
-  ✓ Get Anthropic API key
-  ✓ Set up PostgreSQL database (local or free RDS)
-  ✓ Run 5 problem validation interviews
-  ✓ Start coding repo
-  GOAL: Confirm 4/5 people say "Yes, I struggle with this"
+LOCAL COMMANDS (PowerShell)
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+uvicorn app.main:app --reload --port 8000
 
-WEEK 2: MVP BUILD (25 hours)
-  ✓ FastAPI + Twilio webhook working
-  ✓ Claude conversation loop
-  ✓ Routine extraction from natural conversation
-  ✓ Save to database
-  GOAL: End-to-end conversation flow works (Message → Claude → DB)
+celery -A app.tasks.celery_app worker --loglevel=info --pool=solo
+celery -A app.tasks.celery_app beat --loglevel=info
 
-WEEK 3: REMINDERS & TESTING (15 hours)
-  ✓ Celery scheduled reminders (send at 8 AM, etc.)
-  ✓ Caregiver alerts when user confirms
-  ✓ Basic logging & analytics
-  ✓ Test without crashes for 1 week
-  GOAL: Reminder arrives, user confirms, caregiver gets alert
+SAFETY
+- Supportive, non-diagnostic AI
+- Never change medicine instructions
+- Cite current external information
+- Explain score components and missing data
+- Consent and least privilege for family sharing
+- Sahaay does not replace emergency services
 
-WEEK 4: BETA WITH 5 REAL USERS (10+ hours + daily check-ins)
-  ✓ Recruit 5 people from your interviews
-  ✓ Daily 15-min standups (What worked? What was confusing?)
-  ✓ Fix critical bugs immediately
-  ✓ Collect NPS feedback
-  GOAL: 4/5 active on day 7; onboarding completion >80%; NPS >20
+NORTH-STAR OUTCOMES
+- Elder autonomy and comfort
+- Family confidence and faster understanding
+- Better reminder/medicine adherence
+- Useful, low-noise escalations
+- Reliable push/in-app delivery
+- Fast SOS acknowledgment
 
-WEEKS 5–6: ITERATE & SCALE TO 20 USERS (20 hours)
-  ✓ Implement top 3 feature requests from beta
-  ✓ Add basic drift detection
-  ✓ Improve onboarding based on feedback
-  ✓ Scale to 20 testers
-  GOAL: 70% day-7 retention; NPS >40; clear PMF signals
-
-WEEKS 7–8: VALIDATE & PLAN NEXT PHASE (15 hours)
-  ✓ Analyze metrics from 20-user cohort
-  ✓ Decide: Expand to 500 or pivot?
-  ✓ Plan month 2 roadmap
-  ✓ Write 1-page case study from your wins
-  GOAL: Evidence of product-market fit OR clear pivot direction
-
-================================================================================
-                        TECHNICAL STACK (MVP)
-================================================================================
-
-API:              Claude (claude-opus-4-6) for conversation + routing
-Messaging:        Twilio (WhatsApp + SMS)
-Backend:          FastAPI (Python web framework)
-Database:         PostgreSQL (routines, logs) + Redis (session state)
-Scheduling:       Celery + Redis (reminders, drift detection)
-Hosting:          AWS EC2 t3.micro (~$8/month) or local dev
-
-TOTAL COST (Month 1): ~₹50–500 (just APIs + local dev)
-TOTAL COST (Month 3, 100 users): ~₹3,000–4,000/month
-
-================================================================================
-                       TARGET USER PERSONAS
-================================================================================
-
-RAJESH (72, Bangalore) — Elderly living alone
-  • Manages BP medicine + diabetes meds
-  • Daughter calls daily to remind (exhausting)
-  • Won't install apps; comfortable with WhatsApp
-  → Sahaay: Drifts detection alerts daughter only when needed
-
-PRIYA (38, Mumbai) — Caregiver
-  • Works full-time, manages elderly mother's care remotely
-  • Spends 10 hours/week on reminders via WhatsApp calls
-  • Needs simple signals, not data overload
-  → Sahaay: Clean dashboard (stable/drifting/attention needed)
-
-ARJUN (34, Delhi) — ADHD adult
-  • Chaotic schedule; existing task apps make him feel worse
-  • Paralyzed by complex interfaces
-  • Needs gentle, judgment-free nudges
-  → Sahaay: Simple conversation, no guilt, no forms
-
-AISHA (45, Chennai) — Busy parent
-  • Manages kids, bills, elderly parent, own work
-  • Uses 5 different apps; still forgets things
-  • Family WhatsApp is chaos
-  → Sahaay: One conversational interface for all
-
-================================================================================
-                     GO-TO-MARKET (FIRST 60 DAYS)
-================================================================================
-
-PHASE 1: VALIDATION (Weeks 1–2)
-  • 5 problem interviews
-  • Is the problem real? Do people want this solution?
-
-PHASE 2: CLOSED BETA (Weeks 3–4)
-  • 30 invited users (elderly + caregivers)
-  • Daily standups, rapid iteration
-  • Track: onboarding %, retention, NPS, feature clarity
-
-PHASE 3: EARLY BETA (Weeks 5–6)
-  • 50–100 self-service signups
-  • Share link in: Reddit, Facebook groups, personal network
-  • Measure: retention %, NPS, feature adoption
-
-PHASE 4: DECISION (Week 7–8)
-  • Do metrics show PMF?
-    • YES: Expand partnerships, plan paid tier, hire
-    • NO: Pivot or iterate based on feedback
-
-PARTNERS TO APPROACH (Month 2–3):
-  • HelpAge India (credibility + reach)
-  • Local geriatric care centers
-  • ADHD communities (Reddit, support groups)
-  • Caregiver NGOs (Aasra, etc.)
-
-================================================================================
-                      MONETIZATION (6+ MONTHS)
-================================================================================
-
-FREE TIER
-  • 1 user, 3 routines, basic reminders
-  • Goal: Experience value before paying
-  • Conversion target: 20%
-
-FAMILY PLAN (₹299/month = $3.60)
-  • 5 users, unlimited routines, caregiver dashboard
-  • Goal: Primary revenue
-  • Conversion target: 60% of users
-
-CARE PROVIDER PLAN (₹999/month = $12)
-  • Up to 50 elderly residents, staff dashboard
-  • Goal: Enterprise revenue
-  • Targets: Nursing homes, senior centers
-
-YEAR 2 PROJECTION:
-  • 50,000 users
-  • ₹5–8 crore revenue
-  • Path to profitability at 20K users
-
-================================================================================
-                       SUCCESS METRICS
-================================================================================
-
-WEEK 4 (MVP Launch)
-  ✓ 5+ real beta testers
-  ✓ Onboarding completion >80%
-  ✓ Zero critical bugs
-  ✓ At least 1 user says "This really helps!"
-
-WEEK 8 (Beta Scale)
-  ✓ 20+ active users
-  ✓ Day-7 retention >70%
-  ✓ NPS >40
-  ✓ Adherence improvement +20% average
-
-MONTH 3 (Public Launch)
-  ✓ 500–1,000 users
-  ✓ Day-30 retention >60%
-  ✓ 5–10 paying customers
-  ✓ Clear roadmap for next 6 months
-
-================================================================================
-                         KEY DECISIONS
-================================================================================
-
-DON'T BUILD YET:
-  ❌ Mobile app (WhatsApp is your UI)
-  ❌ Fancy dashboard (text is fine)
-  ❌ Multi-language (English-only for MVP)
-  ❌ Drift detection v2 (heuristics are enough)
-  ❌ Admin panel (manual queries = faster learning)
-
-DO BUILD FIRST:
-  ✓ WhatsApp ↔ Claude conversation
-  ✓ Routine extraction
-  ✓ Save to database
-  ✓ Scheduled reminders
-  ✓ Caregiver alerts (basic)
-  ✓ Logging for metrics
-
-================================================================================
-                      NEXT IMMEDIATE STEPS
-================================================================================
-
-TODAY:
-  1. Read Product Specification (executive summary: 10 min)
-  2. Read 30-Day Checklist (Week 1 section: 5 min)
-  3. Create Twilio + Claude API accounts
-
-THIS WEEK:
-  1. Set up PostgreSQL (local or free tier)
-  2. Get FastAPI + Twilio integration working
-  3. Test WhatsApp message flow
-  4. Schedule 3 user interviews (use script from GTM plan)
-
-NEXT WEEK:
-  1. Build Claude conversation loop
-  2. Extract routines from natural conversation
-  3. Save to database
-  4. Run 2 problem validation interviews
-
-IF THIS FEELS RIGHT:
-  • Commit 30 days to MVP
-  • Find 1 co-founder or close collaborator
-  • Clear your calendar (20+ hours/week minimum)
-  • Move fast, learn from users
-
-================================================================================
-                           THE PITCH (30 SEC)
-================================================================================
-
-"My grandmother has been diabetic for 15 years. She's disciplined. But she 
-forgets her medicine 2–3 times a month. My mom calls daily to remind her.
-It's exhausting.
-
-The problem: Reminder apps require you to organize yourself. The tools fail 
-the people who need them most.
-
-The solution: Sahaay learns your routine through a 5-minute WhatsApp 
-conversation. It notices when something's wrong ("You usually take medicine 
-at 8 AM, it's 11 AM...") and alerts caregivers only when needed.
-
-Market: 150M elderly + 50M caregivers + 5M ADHD adults = $1–2B opportunity.
-
-We're validating with beta users now. If PMF holds, this is a real business."
-
-================================================================================
-                      DOCS YOU HAVE
-================================================================================
-
-README.md
-  → Navigation guide; start here
-
-Sahaay_Product_Specification.md
-  → Complete PRD; what to build and why
-
-Sahaay_Implementation_Guide.md
-  → Code examples; how to build it
-
-Sahaay_GTM_and_Research.md
-  → User research plan; how to launch
-
-Sahaay_Pitch_Deck_Outline.md
-  → 10-slide pitch structure
-
-Sahaay_30Day_Launch_Checklist.md
-  → Daily/weekly tasks for next month
-
-================================================================================
-
-                        YOU'VE GOT THIS. 🚀
-
-         Start with Week 1. Talk to real users. Build fast.
-         Ship over perfect. Let the market teach you.
-
-                  Questions? Re-read the relevant section.
-                   The answer is probably already there.
-
-================================================================================
+READING ORDER
+1. START_HERE.md
+2. Sahaay_Real_PRD.md (canonical)
+3. Sahaay_User_Journeys.md
+4. Sahaay_Implementation_Guide.md
+5. Sahaay_30Day_Launch_Checklist.md
+6. Sahaay_GTM_and_Research.md
+7. Sahaay_Pitch_Deck_Outline.md
