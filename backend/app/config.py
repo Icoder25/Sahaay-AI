@@ -1,3 +1,5 @@
+"""Application configuration and environment settings."""
+
 from functools import lru_cache
 from pathlib import Path
 
@@ -8,6 +10,8 @@ AUDIO_DIR = BACKEND_ROOT / "static" / "audio"
 
 
 class Settings(BaseSettings):
+    """Runtime settings loaded from environment variables and optional `.env`."""
+
     model_config = SettingsConfigDict(
         env_file=str(BACKEND_ROOT / ".env"),
         env_file_encoding="utf-8",
@@ -25,4 +29,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Return a cached Settings instance."""
     return Settings()

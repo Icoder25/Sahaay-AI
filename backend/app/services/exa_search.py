@@ -1,3 +1,5 @@
+"""Exa search helpers for grounded health and routine answers."""
+
 from __future__ import annotations
 
 import re
@@ -19,6 +21,7 @@ SEARCH_TRIGGERS = re.compile(
 
 
 def needs_search(message: str) -> bool:
+    """Return True when the user message likely needs grounded web retrieval."""
     text = message.strip()
     if len(text) < 8:
         return False
@@ -34,6 +37,7 @@ def needs_search(message: str) -> bool:
 
 
 def search_exa(query: str, num_results: int = 5) -> list[Citation]:
+    """Search Exa and return citation objects; empty list if unavailable."""
     settings = get_settings()
     if not settings.exa_api_key:
         return []

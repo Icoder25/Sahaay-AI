@@ -1,3 +1,5 @@
+"""ElevenLabs text-to-speech helpers."""
+
 from __future__ import annotations
 
 import uuid
@@ -7,6 +9,7 @@ from app.config import AUDIO_DIR, get_settings
 
 
 def ensure_audio_dir() -> Path:
+    """Ensure the static audio directory exists and return its path."""
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
     return AUDIO_DIR
 

@@ -1,3 +1,5 @@
+"""ORM models for demo sessions, chat messages, routines, and reminders."""
+
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
@@ -7,6 +9,8 @@ from app.db import Base
 
 
 class ChatSession(Base):
+    """A demo chat session keyed by client-provided UUID."""
+
     __tablename__ = "sessions"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -22,6 +26,8 @@ class ChatSession(Base):
 
 
 class Message(Base):
+    """A single user or assistant message within a session."""
+
     __tablename__ = "messages"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -34,6 +40,8 @@ class Message(Base):
 
 
 class Routine(Base):
+    """A structured routine extracted from conversation (e.g. medication)."""
+
     __tablename__ = "routines"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -54,6 +62,8 @@ class Routine(Base):
 
 
 class Reminder(Base):
+    """A created or demo reminder linked to a session and optional routine."""
+
     __tablename__ = "reminders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

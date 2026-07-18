@@ -1,3 +1,5 @@
+"""Claude conversation engine with routine extraction and optional Exa grounding."""
+
 from __future__ import annotations
 
 import json
@@ -91,6 +93,7 @@ QUESTION_HINTS = re.compile(
 
 
 def _routines_context(routines: list[Routine]) -> str:
+    """Format known routines as context for the Claude system prompt."""
     if not routines:
         return "No routines stored yet."
     lines = []
@@ -106,10 +109,12 @@ def _routines_context(routines: list[Routine]) -> str:
 
 
 def _to_claude_messages(messages: list[Message]) -> list[dict[str, str]]:
+    """Convert stored messages into Claude API message dicts."""
     return [{"role": m.role, "content": m.content} for m in messages if m.role in ("user", "assistant")]
 
 
 def _detect_intent(user_message: str, routines_updated: list, citations: list) -> str:
+    """Classify the turn as routine_update, question, or chat."""
     if routines_updated:
         return "routine_update"
     if citations or needs_search(user_message) or QUESTION_HINTS.search(user_message):
@@ -118,6 +123,7 @@ def _detect_intent(user_message: str, routines_updated: list, citations: list) -
 
 
 def _client() -> anthropic.Anthropic:
+    """Build an Anthropic client or raise if the API key is missing."""
     settings = get_settings()
     if not settings.anthropic_api_key:
         raise RuntimeError("ANTHROPIC_API_KEY is not set")

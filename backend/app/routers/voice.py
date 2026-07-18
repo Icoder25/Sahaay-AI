@@ -1,3 +1,5 @@
+"""Standalone text-to-speech endpoint."""
+
 from fastapi import APIRouter, HTTPException
 
 from app.schemas import VoiceSpeakRequest, VoiceSpeakResponse
@@ -8,6 +10,7 @@ router = APIRouter(prefix="/voice", tags=["voice"])
 
 @router.post("/speak", response_model=VoiceSpeakResponse)
 def speak(body: VoiceSpeakRequest) -> VoiceSpeakResponse:
+    """Convert text to speech and return a public `/static/audio` URL."""
     audio_url = synthesize_speech(body.text)
     if not audio_url:
         raise HTTPException(

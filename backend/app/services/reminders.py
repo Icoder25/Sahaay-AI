@@ -1,3 +1,5 @@
+"""Reminder message composition and demo routine selection."""
+
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
@@ -11,6 +13,7 @@ def build_reminder_message(
     user_name: str | None = None,
     custom_message: str | None = None,
 ) -> str:
+    """Build a warm personalized reminder string for a routine."""
     if custom_message:
         return custom_message
 
@@ -32,6 +35,7 @@ def build_reminder_message(
 
 
 def pick_demo_routine(db: Session, session_id: str) -> tuple[Routine | None, str | None]:
+    """Pick the best routine for the demo reminder and return it with the user name."""
     session = db.get(ChatSession, session_id)
     user_name = session.user_name if session else None
     routines = memory_service.get_routines(db, session_id)

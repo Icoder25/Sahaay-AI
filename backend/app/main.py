@@ -1,3 +1,5 @@
+"""FastAPI entrypoint: CORS, static audio, routers, and health check."""
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -12,6 +14,7 @@ from app.schemas import HealthResponse
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    """Initialize database tables and audio storage on startup."""
     init_db()
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
     yield
@@ -45,6 +48,7 @@ app.include_router(voice.router)
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
+    """Return API health and whether Anthropic, Exa, and ElevenLabs are configured."""
     settings = get_settings()
     return HealthResponse(
         status="ok",

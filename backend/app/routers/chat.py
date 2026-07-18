@@ -1,3 +1,5 @@
+"""Chat endpoint: Claude conversation with optional voice synthesis."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -12,6 +14,7 @@ router = APIRouter(tags=["chat"])
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(body: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
+    """Process a user message and return reply, routines, citations, and optional audio."""
     settings = get_settings()
     if not settings.anthropic_api_key:
         raise HTTPException(

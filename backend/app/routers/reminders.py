@@ -1,3 +1,5 @@
+"""Reminder create and demo endpoints."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -13,6 +15,7 @@ router = APIRouter(prefix="/reminders", tags=["reminders"])
 
 @router.post("", response_model=ReminderOut)
 def create_reminder(body: ReminderCreate, db: Session = Depends(get_db)) -> ReminderOut:
+    """Create a reminder for a session, optionally tied to a routine."""
     routine: Routine | None = None
     if body.routine_id is not None:
         routine = db.get(Routine, body.routine_id)
@@ -43,6 +46,7 @@ def reminder_demo(
     speak: bool = True,
     db: Session = Depends(get_db),
 ) -> ReminderDemoResponse:
+    """Simulate a proactive companion reminder for the hackathon demo."""
     routine, user_name = pick_demo_routine(db, session_id)
     message = build_reminder_message(routine, user_name=user_name)
     reminder = memory_service.create_reminder(

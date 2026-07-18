@@ -1,9 +1,12 @@
+"""Session memory helpers for messages, routines, and reminders."""
+
 from sqlalchemy.orm import Session
 
 from app.models import ChatSession, Message, Reminder, Routine
 
 
 def get_or_create_session(db: Session, session_id: str) -> ChatSession:
+    """Return an existing chat session or create one for the given ID."""
     session = db.get(ChatSession, session_id)
     if session is None:
         session = ChatSession(id=session_id)
@@ -14,6 +17,7 @@ def get_or_create_session(db: Session, session_id: str) -> ChatSession:
 
 
 def add_message(db: Session, session_id: str, role: str, content: str) -> Message:
+    """Persist a chat message for the session."""
     get_or_create_session(db, session_id)
     msg = Message(session_id=session_id, role=role, content=content)
     db.add(msg)
@@ -23,6 +27,7 @@ def add_message(db: Session, session_id: str, role: str, content: str) -> Messag
 
 
 def get_recent_messages(db: Session, session_id: str, limit: int = 20) -> list[Message]:
+    """Return the most recent messages in chronological order."""
     return (
         db.query(Message)
         .filter(Message.session_id == session_id)
@@ -33,6 +38,7 @@ def get_recent_messages(db: Session, session_id: str, limit: int = 20) -> list[M
 
 
 def get_routines(db: Session, session_id: str) -> list[Routine]:
+    """List all routines belonging to a session."""
     return (
         db.query(Routine)
         .filter(Routine.session_id == session_id)
@@ -80,6 +86,7 @@ def upsert_routines(db: Session, session_id: str, routines_data: list[dict]) -> 
 
 
 def set_user_name(db: Session, session_id: str, name: str | None) -> None:
+    """Store the user's display name on the session when provided."""
     if not name:
         return
     session = get_or_create_session(db, session_id)
@@ -95,6 +102,7 @@ def create_reminder(
     scheduled_time: str | None = None,
     is_demo: bool = False,
 ) -> Reminder:
+    """Insert a reminder row for the session."""
     get_or_create_session(db, session_id)
     reminder = Reminder(
         session_id=session_id,

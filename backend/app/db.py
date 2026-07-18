@@ -1,3 +1,5 @@
+"""SQLAlchemy engine, session factory, and database helpers."""
+
 from collections.abc import Generator
 
 from sqlalchemy import create_engine
@@ -13,10 +15,13 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 class Base(DeclarativeBase):
+    """Declarative base for all ORM models."""
+
     pass
 
 
 def get_db() -> Generator[Session, None, None]:
+    """Yield a database session for FastAPI dependency injection."""
     db = SessionLocal()
     try:
         yield db
@@ -25,6 +30,7 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
+    """Create all database tables if they do not already exist."""
     from app import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
