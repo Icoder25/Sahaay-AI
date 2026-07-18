@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChatInput } from "@/components/ChatInput/ChatInput";
 import { ChatThread } from "@/components/ChatThread/ChatThread";
+import { ElderSidebar } from "@/components/ElderSidebar/ElderSidebar";
 import { HealthIndicator } from "@/components/HealthIndicator/HealthIndicator";
 import { RoutinesPanel } from "@/components/RoutinesPanel/RoutinesPanel";
+import { useI18n } from "@/contexts/I18nContext";
+import { ensureElderProfile } from "@/hooks/useFamily";
 import {
   getDemoReminder,
   getRoutines,
@@ -12,6 +15,7 @@ import {
   sendChat,
 } from "@/lib/api";
 import type { Routine, UiChatMessage } from "@/lib/types";
+import { logActivity } from "@/lib/store";
 import { useSession } from "@/hooks/useSession";
 import styles from "./SahaayDemo.module.css";
 
@@ -40,6 +44,7 @@ function mergeRoutines(existing: Routine[], updated: Routine[]): Routine[] {
 }
 
 export function SahaayDemo() {
+  const { tr } = useI18n();
   const sessionId = useSession();
   const [messages, setMessages] = useState<UiChatMessage[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
@@ -123,6 +128,19 @@ export function SahaayDemo() {
 
         setMessages((current) => [...current, assistantMessage]);
 
+        const profile = ensureElderProfile(sessionId);
+        logActivity(
+          profile.id,
+          response.intent,
+          response.intent === "routine_update"
+            ? "Routine updated"
+            : response.intent === "question"
+              ? "Health question answered"
+              : "Chat with Sahaay",
+          text.slice(0, 120),
+        );
+        window.dispatchEvent(new Event("sahaay-store"));
+
         if (response.routines_updated.length > 0) {
           setRoutines((current) =>
             mergeRoutines(current, response.routines_updated),
@@ -162,6 +180,15 @@ export function SahaayDemo() {
         timestamp: Date.now(),
       };
       setMessages((current) => [...current, assistantMessage]);
+
+      const profile = ensureElderProfile(sessionId);
+      logActivity(
+        profile.id,
+        "reminder",
+        "Demo reminder received",
+        response.message.slice(0, 120),
+      );
+      window.dispatchEvent(new Event("sahaay-store"));
     } catch (err) {
       const message =
         err instanceof Error
@@ -181,10 +208,8 @@ export function SahaayDemo() {
             🙏
           </div>
           <div>
-            <h1 className={styles.title}>Sahaay</h1>
-            <p className={styles.tagline}>
-              Your gentle care companion — routines, answers, and reminders.
-            </p>
+            <h1 className={styles.title}>{tr("appName")}</h1>
+            <p className={styles.tagline}>{tr("elderWelcome")}</p>
           </div>
         </div>
         <HealthIndicator />
@@ -211,6 +236,8 @@ export function SahaayDemo() {
           onDemoReminder={handleDemoReminder}
           reminderLoading={reminderLoading}
         />
+
+        {sessionId ? <ElderSidebar sessionId={sessionId} /> : null}
       </div>
     </div>
   );

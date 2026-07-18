@@ -2,7 +2,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100%;
   background: var(--background);
 }
 
@@ -54,7 +54,7 @@
 .layout {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.7fr) minmax(240px, 0.6fr);
   min-height: 0;
 }
 
@@ -65,22 +65,22 @@
   background: var(--background);
 }
 
-@media (max-width: 900px) {
-  .header {
-    padding: 16px;
-  }
-
+@media (max-width: 1100px) {
   .layout {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: auto auto auto;
   }
 
   .chatSection {
-    min-height: 60vh;
+    min-height: 55vh;
   }
 }
 
 @media (max-width: 640px) {
+  .header {
+    padding: 16px;
+  }
+
   .title {
     font-size: 1.5rem;
   }

@@ -1,3 +1,6 @@
+"use client";
+
+import { useI18n } from "@/contexts/I18nContext";
 import type { Routine } from "@/lib/types";
 import styles from "./RoutinesPanel.module.css";
 
@@ -41,13 +44,13 @@ export function RoutinesPanel({
   onDemoReminder,
   reminderLoading = false,
 }: RoutinesPanelProps) {
+  const { tr } = useI18n();
+
   return (
     <aside className={styles.panel} aria-label="Your routines">
       <div className={styles.header}>
-        <h2 className={styles.title}>Your routines</h2>
-        <p className={styles.subtitle}>
-          Sahaay remembers what you share — medicines, bills, and daily habits.
-        </p>
+        <h2 className={styles.title}>{tr("yourRoutines")}</h2>
+        <p className={styles.subtitle}>{tr("routinesHint")}</p>
       </div>
 
       <button
@@ -56,7 +59,7 @@ export function RoutinesPanel({
         onClick={onDemoReminder}
         disabled={reminderLoading || routines.length === 0}
       >
-        {reminderLoading ? "Sending reminder…" : "Try demo reminder"}
+        {reminderLoading ? tr("sendingReminder") : tr("tryReminder")}
       </button>
 
       {routines.length === 0 ? (

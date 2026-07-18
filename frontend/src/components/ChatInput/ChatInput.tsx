@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useI18n } from "@/contexts/I18nContext";
 import styles from "./ChatInput.module.css";
 
 interface ChatInputProps {
@@ -22,6 +23,7 @@ export function ChatInput({
   speakEnabled,
   onSpeakToggle,
 }: ChatInputProps) {
+  const { tr } = useI18n();
   const [value, setValue] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -59,7 +61,7 @@ export function ChatInput({
           className={styles.input}
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          placeholder="Type a message…"
+          placeholder={tr("chatPlaceholder")}
           rows={2}
           disabled={disabled}
           onKeyDown={(event) => {
@@ -77,14 +79,14 @@ export function ChatInput({
               onChange={(event) => onSpeakToggle(event.target.checked)}
               disabled={disabled}
             />
-            Voice replies
+            {tr("voiceReplies")}
           </label>
           <button
             type="submit"
             className={styles.sendButton}
             disabled={disabled || !value.trim()}
           >
-            Send
+            {tr("send")}
           </button>
         </div>
       </form>

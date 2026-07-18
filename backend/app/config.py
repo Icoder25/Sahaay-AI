@@ -21,10 +21,17 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     exa_api_key: str = ""
     elevenlabs_api_key: str = ""
-    elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"  # Rachel default
+    elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"
     claude_model: str = "claude-sonnet-4-5"
     enable_voice: bool = True
     database_url: str = f"sqlite:///{BACKEND_ROOT / 'sahaay.db'}"
+
+    jwt_secret_key: str = "sahaay-dev-secret-change-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 60 * 24 * 7
+
+    fcm_server_key: str = ""
+    enable_fcm: bool = False
 
 
 @lru_cache

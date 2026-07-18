@@ -1,3 +1,5 @@
+import { AppShell } from "@/components/AppShell/AppShell";
+import { AppProviders } from "@/components/AppProviders/AppProviders";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -13,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sahaay — Care Companion Demo",
+  title: "Sahaay — AI Care Companion",
   description:
-    "Ambient AI care companion demo: chat, routines, grounded answers, and gentle reminders.",
+    "AI-powered care companion for elders and families: chat, routines, wellness, and gentle reminders.",
 };
 
 export default function RootLayout({
@@ -25,7 +27,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>{children}</body>
+      <body>
+        <AppProviders>
+          <AppShell>{children}</AppShell>
+        </AppProviders>
+      </body>
     </html>
   );
 }

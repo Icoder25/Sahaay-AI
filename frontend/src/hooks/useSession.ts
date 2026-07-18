@@ -1,20 +1,19 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { createCachedPrimitiveSnapshot } from "@/lib/syncSnapshot";
 import { getOrCreateSessionId } from "@/lib/session";
 
-function subscribe() {
-  return () => {};
-}
-
-function getSnapshot() {
-  return getOrCreateSessionId();
-}
-
-function getServerSnapshot() {
-  return "";
-}
+const sessionStore = createCachedPrimitiveSnapshot<string>(
+  getOrCreateSessionId,
+  () => () => {},
+  () => "",
+);
 
 export function useSession() {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return useSyncExternalStore(
+    sessionStore.subscribe,
+    sessionStore.getSnapshot,
+    sessionStore.getServerSnapshot,
+  );
 }

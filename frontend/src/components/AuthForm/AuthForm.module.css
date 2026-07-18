@@ -1,0 +1,96 @@
+.page {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.card {
+  width: 100%;
+  max-width: 440px;
+  padding: 32px 24px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--text-primary);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.input,
+.select {
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 2px solid var(--border-soft);
+  border-radius: 12px;
+  font: inherit;
+  background: var(--background);
+  color: var(--text-primary);
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--accent-teal);
+}
+
+.submit {
+  margin-top: 8px;
+  min-height: 48px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent-teal);
+  color: white;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.error {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--error) 12%, white);
+  color: var(--error);
+  font-size: 0.875rem;
+}
+
+.footer {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+}
+
+.footer a {
+  color: var(--accent-teal);
+  font-weight: 600;
+}
+
+.footer a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

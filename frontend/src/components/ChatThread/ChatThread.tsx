@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { ChatMessage } from "@/components/ChatMessage/ChatMessage";
+import { useI18n } from "@/contexts/I18nContext";
 import type { UiChatMessage } from "@/lib/types";
 import styles from "./ChatThread.module.css";
 
@@ -16,6 +17,7 @@ export function ChatThread({
   isLoading = false,
   error = null,
 }: ChatThreadProps) {
+  const { tr } = useI18n();
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,11 +28,8 @@ export function ChatThread({
     <div className={styles.wrapper} aria-live="polite" aria-busy={isLoading}>
       {messages.length === 0 ? (
         <div className={styles.empty}>
-          <p className={styles.emptyTitle}>Namaste — welcome to Sahaay</p>
-          <p className={styles.emptyText}>
-            Share your daily routines or ask a health question. Sahaay listens
-            gently and remembers what matters to you.
-          </p>
+          <p className={styles.emptyTitle}>{tr("chatEmptyTitle")}</p>
+          <p className={styles.emptyText}>{tr("chatEmptyText")}</p>
         </div>
       ) : (
         <div className={styles.messages}>
@@ -47,7 +46,7 @@ export function ChatThread({
             <span />
             <span />
           </span>
-          Sahaay is thinking…
+          {tr("thinking")}
         </div>
       ) : null}
 
