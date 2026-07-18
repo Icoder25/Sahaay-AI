@@ -1,16 +1,53 @@
+# =========================
+# FastAPI
+# =========================
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
+gunicorn==23.0.0
+
+# =========================
+# Database
+# =========================
 sqlalchemy==2.0.36
+alembic==1.14.1
+psycopg[binary]==3.2.4
+
+# =========================
+# Validation & Config
+# =========================
 pydantic==2.10.4
 pydantic-settings==2.7.0
-email-validator>=2.2
-PyJWT[crypto]>=2.10
-anthropic==0.42.0
-httpx==0.28.1
 python-dotenv==1.0.1
+email-validator>=2.2
+
+# =========================
+# Authentication
+# =========================
+firebase-admin==7.1.0
+PyJWT[crypto]==2.10.1
+
+# =========================
+# AI
+# =========================
+anthropic==0.42.0
+
+# =========================
+# Search
+# =========================
 exa-py==1.7.0
+
+# =========================
+# Voice
+# =========================
 elevenlabs==1.50.3
-psycopg[binary]==3.2.4
+
+# =========================
+# HTTP Client
+# =========================
+httpx==0.28.1
+
+# =========================
+# Background Tasks
+# =========================
 celery[redis]>=5.4
-firebase-admin>=6.6
-pytest>=8.3
+redis>=5.2
