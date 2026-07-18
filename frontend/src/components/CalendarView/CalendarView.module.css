@@ -1,0 +1,56 @@
+.page {
+  flex: 1;
+  padding: 24px 20px 32px;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--text-primary);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.event {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+}
+
+.eventTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.eventMeta {
+  margin-top: 8px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.badge {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  background: color-mix(in srgb, var(--accent-teal) 14%, white);
+  color: var(--accent-teal-dark);
+}
+
+.empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.6;
+}

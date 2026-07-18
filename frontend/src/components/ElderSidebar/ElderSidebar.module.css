@@ -1,0 +1,17 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 20px;
+  border-left: 1px solid var(--border-soft);
+  background: var(--surface);
+  min-width: 280px;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    border-left: none;
+    border-top: 1px solid var(--border-soft);
+  }
+}

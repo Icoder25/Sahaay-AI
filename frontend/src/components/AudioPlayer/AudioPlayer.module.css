@@ -1,0 +1,23 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--surface-muted);
+  border-radius: 12px;
+}
+
+.icon {
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.audio {
+  width: 100%;
+  min-height: 36px;
+}
+
+.audio::-webkit-media-controls-panel {
+  background: transparent;
+}

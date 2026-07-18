@@ -64,6 +64,13 @@ class Settings(BaseSettings):
     def allowed_origins(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
 
+    jwt_secret_key: str = "sahaay-dev-secret-change-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 60 * 24 * 7
+
+    fcm_server_key: str = ""
+    enable_fcm: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:
