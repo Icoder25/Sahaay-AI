@@ -5,6 +5,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/contexts/I18nContext";
+import { getCareContext } from "@/lib/authStorage";
 import styles from "./AuthForm.module.css";
 
 interface AuthFormProps {
@@ -16,48 +17,53 @@ export function AuthForm({ mode }: AuthFormProps) {
   const { login, register } = useAuth();
   const { tr, locale } = useI18n();
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setBusy(true);
     const form = new FormData(event.currentTarget);
 
     const email = String(form.get("email") ?? "");
     const password = String(form.get("password") ?? "");
 
-    if (mode === "login") {
-      const ok = login(email, password);
-      if (!ok) {
-        setError("Invalid email or password.");
+    try {
+      if (mode === "login") {
+        await login(email, password);
+        const ctx = getCareContext();
+        router.push(ctx?.role === "elder" ? "/elder" : "/family");
         return;
       }
-      router.push("/family");
-      return;
+
+      const fullName = String(form.get("fullName") ?? "");
+      const role = String(form.get("role") ?? "family_member") as
+        | "family_member"
+        | "elder";
+      const familyName = String(form.get("familyName") ?? "");
+      const inviteCode = String(form.get("inviteCode") ?? "");
+
+      if (!fullName || !email || password.length < 8) {
+        setError("Please fill all fields. Password must be at least 8 characters.");
+        return;
+      }
+
+      await register({
+        email,
+        password,
+        fullName,
+        role,
+        locale,
+        familyName: familyName || undefined,
+        inviteCode: inviteCode || undefined,
+      });
+
+      router.push(role === "elder" ? "/elder" : "/family");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Authentication failed.");
+    } finally {
+      setBusy(false);
     }
-
-    const fullName = String(form.get("fullName") ?? "");
-    const role = String(form.get("role") ?? "family_member") as
-      | "family_member"
-      | "elder";
-    const familyName = String(form.get("familyName") ?? "");
-    const inviteCode = String(form.get("inviteCode") ?? "");
-
-    if (!fullName || !email || password.length < 6) {
-      setError("Please fill all fields. Password must be at least 6 characters.");
-      return;
-    }
-
-    register({
-      email,
-      password,
-      fullName,
-      role,
-      locale,
-      familyName: familyName || undefined,
-      inviteCode: inviteCode || undefined,
-    });
-
-    router.push(role === "elder" ? "/elder" : "/family");
   }
 
   return (
@@ -85,9 +91,9 @@ export function AuthForm({ mode }: AuthFormProps) {
                 <label className={styles.label} htmlFor="role">
                   {tr("role")}
                 </label>
-                <select id="role" name="role" className={styles.select} defaultValue="family_member">
-                  <option value="family_member">{tr("roleFamily")}</option>
+                <select id="role" name="role" className={styles.select} defaultValue="elder">
                   <option value="elder">{tr("roleElder")}</option>
+                  <option value="family_member">{tr("roleFamily")}</option>
                 </select>
               </div>
               <div className={styles.field}>
@@ -95,12 +101,6 @@ export function AuthForm({ mode }: AuthFormProps) {
                   {tr("familyName")}
                 </label>
                 <input id="familyName" name="familyName" className={styles.input} />
-              </div>
-              <div className={styles.field}>
-                <label className={styles.label} htmlFor="inviteCode">
-                  {tr("inviteCode")}
-                </label>
-                <input id="inviteCode" name="inviteCode" className={styles.input} />
               </div>
             </>
           ) : null}
@@ -114,6 +114,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               name="email"
               type="email"
               className={styles.input}
+              autoComplete="email"
               required
             />
           </div>
@@ -127,15 +128,16 @@ export function AuthForm({ mode }: AuthFormProps) {
               name="password"
               type="password"
               className={styles.input}
-              minLength={6}
+              minLength={8}
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
               required
             />
           </div>
 
           {error ? <p className={styles.error}>{error}</p> : null}
 
-          <button type="submit" className={styles.submit}>
-            {tr("submit")}
+          <button type="submit" className={styles.submit} disabled={busy}>
+            {busy ? "Please wait…" : tr("submit")}
           </button>
         </form>
 

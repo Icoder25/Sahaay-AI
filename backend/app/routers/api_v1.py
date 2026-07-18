@@ -101,9 +101,13 @@ def audit(
     family_id: str | None = None, elder_id: str | None = None,
     old_values: dict | None = None, new_values: dict | None = None,
 ) -> None:
+    # Use {} not None: psycopg Jsonb(None) binds as JSON null and fails
+    # audit_logs_*_values_check (expects SQL NULL or a JSON object).
     db.add(AuditLog(
         actor_id=actor_id, family_id=family_id, elder_id=elder_id, action=action,
-        entity_type=entity_type, entity_id=entity_id, old_values=old_values, new_values=new_values,
+        entity_type=entity_type, entity_id=entity_id,
+        old_values=old_values if old_values is not None else {},
+        new_values=new_values if new_values is not None else {},
     ))
 
 

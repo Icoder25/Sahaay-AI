@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect } from "react";
 import { SosButton } from "@/components/SosButton/SosButton";
 import { WellnessForm } from "@/components/WellnessForm/WellnessForm";
-import { ensureElderProfile } from "@/hooks/useFamily";
+import { ensureElderProfile, useElderProfile } from "@/hooks/useFamily";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./ElderSidebar.module.css";
 
@@ -13,13 +13,12 @@ interface ElderSidebarProps {
 
 export function ElderSidebar({ sessionId }: ElderSidebarProps) {
   const { user } = useAuth();
+  const profile = useElderProfile(sessionId);
 
-  const profile = useMemo(() => {
-    if (!sessionId) {
-      return null;
-    }
-    return ensureElderProfile(sessionId, user?.fullName ?? "Elder");
-  }, [sessionId, user?.fullName]);
+  useEffect(() => {
+    if (!sessionId || profile) return;
+    ensureElderProfile(sessionId, user?.fullName ?? "Elder");
+  }, [sessionId, profile, user?.fullName]);
 
   if (!profile) {
     return null;

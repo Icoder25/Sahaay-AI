@@ -59,7 +59,7 @@ export function RoutinesPanel({
         onClick={onDemoReminder}
         disabled={reminderLoading || routines.length === 0}
       >
-        {reminderLoading ? tr("sendingReminder") : tr("tryReminder")}
+        {reminderLoading ? tr("sendingReminder") : "Next reminder"}
       </button>
 
       {routines.length === 0 ? (
