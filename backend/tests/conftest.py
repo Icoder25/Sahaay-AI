@@ -2,7 +2,6 @@ import os
 
 os.environ["DATABASE_URL"] = "sqlite:///./test_sahaay.db"
 os.environ["SUPABASE_URL"] = ""
-os.environ["SUPABASE_PUBLISHABLE_KEY"] = ""
 os.environ["ANTHROPIC_API_KEY"] = ""
 os.environ["FIREBASE_CREDENTIALS_JSON"] = ""
 

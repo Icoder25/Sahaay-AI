@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from app.db import SessionLocal
-from app.models import AuditLog, Notification, Reminder, ReminderCompletion
+from app.models import AuditLog, LoginHistory, Notification, Reminder, ReminderCompletion, User
 from app.services.notifications import send_notification
 from app.tasks import dispatch_reminders
 
@@ -10,6 +10,8 @@ def test_migration_table_and_column_names():
     assert ReminderCompletion.__tablename__ == "reminder_completions"
     assert AuditLog.__tablename__ == "audit_logs"
     expected = {
+        "users": {"firebase_uid", "last_login_at", "login_count", "onboarding_completed"},
+        "login_history": {"firebase_uid", "login_time", "ip_address", "session_id"},
         "elder_profiles": {"user_id", "created_by", "preferred_language"},
         "wellness_checks": {"check_date", "sleep_quality", "drank_enough_water"},
         "ai_conversations": {"started_by", "status", "memory", "last_message_at"},
@@ -19,6 +21,8 @@ def test_migration_table_and_column_names():
     metadata = AuditLog.metadata
     for table_name, columns in expected.items():
         assert columns <= set(metadata.tables[table_name].columns.keys())
+    assert User.__tablename__ == "users"
+    assert LoginHistory.__tablename__ == "login_history"
 
 
 def test_notification_helper_does_not_commit(client):

@@ -13,22 +13,18 @@ Copy-Item .env.example .env
 uvicorn app.main:app --reload
 ```
 
-SQLite is the zero-configuration default. Set `DATABASE_URL` to a SQLAlchemy Postgres URL, or set `SUPABASE_URL` plus `SUPABASE_DB_PASSWORD` (and the pooler host/port) for deployment. SQLite tables are created at startup for local use and tests. Postgres tables are never auto-created: they are mapped exactly to `20260718131000_rebuild_web_schema.sql` and must be managed by Supabase migrations.
+SQLite is the zero-configuration default. Set `DATABASE_URL` to a SQLAlchemy Postgres URL, or set `SUPABASE_URL` plus `SUPABASE_DB_PASSWORD` (and the pooler host/port) for deployment. SQLite tables are created at startup for local use and tests. Postgres tables are never auto-created; they must be managed by the checked-in Supabase migrations.
 
 ## Authentication
 
-Clients authenticate with Supabase and send `Authorization: Bearer <access-token>`. The API verifies the token against the project's JWKS endpoint, issuer, audience, expiry and signature. Authorization uses database-backed family membership—not editable JWT user metadata.
+Clients sign in with Google through Firebase and send the Firebase ID token to `POST /api/v1/auth/firebase`. The API verifies the token with Firebase Admin, atomically creates or updates the Supabase user record, and inserts `login_history`. Subsequent protected requests send `Authorization: Bearer <firebase-id-token>`. Authorization uses the internal user UUID and database-backed family membership—not client-provided identity data.
 
-Convenience wrappers are available at:
+Authentication routes:
 
-- `POST /api/v1/auth/signup`
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/refresh`
-- `POST /api/v1/auth/forgot-password` (`email` and optional `redirect_to`; proxies Supabase `/auth/v1/recover`)
-- `POST /api/v1/auth/logout`
+- `POST /api/v1/auth/firebase`
 - `GET /api/v1/auth/me`
 
-Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` to enable wrappers and verification.
+Set `FIREBASE_CREDENTIALS_JSON`, `FIREBASE_PROJECT_ID`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY`. The service-role key is backend-only.
 
 ## API groups
 
@@ -44,7 +40,7 @@ Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` to enable wrappers and verific
 - FCM device tokens, persisted notifications and read state
 - SOS trigger/history/resolve with family notifications
 
-Missing integration credentials never trigger outbound calls: AI returns `503`, voice/search remain off, FCM notifications remain `pending`, and Celery uses an in-memory inert broker unless configured.
+Missing integration credentials fail closed: authentication returns an error, AI returns `503`, voice/search remain off, FCM notifications remain `pending`, and Celery uses an in-memory inert broker unless configured.
 
 Recurring reminders stay `active`: completing an occurrence inserts a `reminder_completions` row and advances `next_run_at`. Once-only reminders become `completed`; exhausted escalation retries record a `missed` occurrence and advance recurring schedules. Significant mutations also write `audit_logs`.
 

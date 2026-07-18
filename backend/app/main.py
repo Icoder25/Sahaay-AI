@@ -58,8 +58,10 @@ def health() -> HealthResponse:
             "anthropic": bool(settings.anthropic_api_key),
             "exa": bool(settings.exa_api_key),
             "elevenlabs": bool(settings.elevenlabs_api_key) and settings.enable_voice,
-            "supabase_auth": bool(settings.supabase_url and settings.supabase_publishable_key),
-            "firebase": bool(settings.firebase_credentials_json),
+            "firebase_auth": bool(
+                settings.firebase_credentials_json or settings.firebase_project_id
+            ),
+            "supabase": bool(settings.supabase_url and settings.supabase_service_role_key),
             "celery_redis": bool(settings.redis_url),
             "database": db_ok,
         },

@@ -22,12 +22,10 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
 
     supabase_url: str = ""
-    supabase_publishable_key: str = ""
     supabase_service_role_key: str = ""
     supabase_db_password: str = ""
     supabase_db_host: str = "aws-0-ap-northeast-1.pooler.supabase.com"
     supabase_db_port: int = 6543
-    supabase_jwt_audience: str = "authenticated"
 
     anthropic_api_key: str = ""
     claude_model: str = "claude-sonnet-4-5"
@@ -37,6 +35,7 @@ class Settings(BaseSettings):
     enable_voice: bool = False
 
     firebase_credentials_json: str = ""
+    firebase_project_id: str = ""
     redis_url: str = ""
     celery_always_eager: bool = False
 

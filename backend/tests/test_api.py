@@ -1,8 +1,22 @@
 from datetime import datetime, timedelta
 
+import pytest
+from fastapi.security import HTTPAuthorizationCredentials
+
+from app import auth as auth_module
 from app.auth import get_current_user
+from app.db import SessionLocal
 from app.main import app
+from app.models import User
 from app.routers import api_v1
+from app.services import authentication as authentication_service
+from app.services import firebase as firebase_service
+from app.services.authentication import (
+    AuthenticationConflict,
+    LoginMetadata,
+    record_authenticated_login,
+)
+from app.services.firebase import InvalidFirebaseToken, verify_firebase_id_token
 
 PREFIX = "/api/v1"
 
@@ -27,32 +41,165 @@ def test_health_and_auth_required(client):
     assert response.status_code == 401
 
 
+def test_current_user_resolves_verified_firebase_identity(monkeypatch):
+    db = SessionLocal()
+    try:
+        user = User(
+            id="11111111-1111-1111-1111-111111111111",
+            firebase_uid="firebase-user-1",
+            email="owner@example.com",
+            status="active",
+        )
+        db.add(user)
+        db.commit()
+        monkeypatch.setattr(
+            auth_module,
+            "verify_firebase_id_token",
+            lambda _token: {
+                "uid": "firebase-user-1",
+                "email": "owner@example.com",
+                "email_verified": True,
+            },
+        )
+        authenticated = get_current_user(
+            HTTPAuthorizationCredentials(scheme="Bearer", credentials="firebase-token"),
+            db,
+        )
+        assert authenticated.id == user.id
+        assert authenticated.firebase_uid == "firebase-user-1"
+    finally:
+        db.close()
+
+
 def test_profile_creation_uses_non_empty_display_name(client, as_user):
     assert client.get(f"{PREFIX}/profiles/me").json()["full_name"] == "owner"
     as_user("33333333-3333-3333-3333-333333333333", None)
     assert client.get(f"{PREFIX}/profiles/me").json()["full_name"] == "Sahaay User"
 
 
-def test_forgot_password_wrapper(client, monkeypatch):
+def test_firebase_authentication(client, monkeypatch):
     captured = {}
 
-    def fake_proxy(path, payload):
-        captured.update(path=path, payload=payload)
-        return {"message": "recovery sent"}
+    monkeypatch.setattr(
+        api_v1,
+        "verify_firebase_id_token",
+        lambda token: {
+            "uid": "firebase-user-1",
+            "email": "owner@example.com",
+            "email_verified": True,
+            "name": "Owner",
+            "picture": "https://example.com/photo.jpg",
+        },
+    )
 
-    monkeypatch.setattr(api_v1, "auth_proxy", fake_proxy)
+    def fake_record(claims, metadata):
+        captured.update(claims=claims, metadata=metadata)
+        return {
+            "id": "11111111-1111-1111-1111-111111111111",
+            "firebase_uid": claims["uid"],
+            "email": claims["email"],
+            "session_id": "session-1",
+        }
+
+    monkeypatch.setattr(api_v1, "record_authenticated_login", fake_record)
     response = client.post(
-        f"{PREFIX}/auth/forgot-password",
-        json={"email": "owner@example.com", "redirect_to": "https://app.example/reset"},
+        f"{PREFIX}/auth/firebase",
+        json={"id_token": "verified-firebase-token"},
+        headers={
+            "user-agent": "Test Browser",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+        },
     )
     assert response.status_code == 200
-    assert captured == {
-        "path": "recover",
-        "payload": {
+    assert response.json()["user"]["firebase_uid"] == "firebase-user-1"
+    assert response.json()["session"]["id"] == "session-1"
+    assert captured["metadata"].device == "desktop"
+    assert captured["metadata"].os == "Windows"
+
+
+def test_firebase_authentication_rejects_invalid_token(client, monkeypatch):
+    def reject(_token):
+        raise InvalidFirebaseToken("Invalid or expired Firebase ID token")
+
+    monkeypatch.setattr(api_v1, "verify_firebase_id_token", reject)
+    response = client.post(
+        f"{PREFIX}/auth/firebase",
+        json={"id_token": "invalid-token"},
+    )
+    assert response.status_code == 401
+
+
+def test_firebase_authentication_rejects_bad_request(client):
+    response = client.post(f"{PREFIX}/auth/firebase", json={"id_token": ""})
+    assert response.status_code == 400
+
+
+def test_firebase_authentication_rejects_account_conflict(client, monkeypatch):
+    monkeypatch.setattr(
+        api_v1,
+        "verify_firebase_id_token",
+        lambda _token: {
+            "uid": "firebase-user-1",
             "email": "owner@example.com",
-            "redirect_to": "https://app.example/reset",
+            "email_verified": True,
         },
-    }
+    )
+
+    def reject_link(_claims, _metadata):
+        raise AuthenticationConflict("Firebase account cannot be linked")
+
+    monkeypatch.setattr(api_v1, "record_authenticated_login", reject_link)
+    response = client.post(
+        f"{PREFIX}/auth/firebase",
+        json={"id_token": "verified-firebase-token"},
+    )
+    assert response.status_code == 400
+
+
+def test_firebase_authentication_rejects_unverified_email(monkeypatch):
+    monkeypatch.setattr(firebase_service, "get_firebase_app", lambda: object())
+    monkeypatch.setattr(
+        firebase_service.auth,
+        "verify_id_token",
+        lambda *_args, **_kwargs: {
+            "uid": "firebase-user-1",
+            "email": "owner@example.com",
+            "email_verified": False,
+        },
+    )
+    with pytest.raises(InvalidFirebaseToken, match="email is not verified"):
+        verify_firebase_id_token("firebase-token")
+
+
+def test_login_persistence_passes_verified_email_to_rpc(monkeypatch):
+    captured = {}
+
+    class RpcCall:
+        def execute(self):
+            return type("Response", (), {"data": {"id": "user-1", "session_id": "session-1"}})()
+
+    class Client:
+        def rpc(self, name, params):
+            captured.update(name=name, params=params)
+            return RpcCall()
+
+    monkeypatch.setattr(
+        authentication_service,
+        "get_supabase_admin_client",
+        lambda: Client(),
+    )
+    result = record_authenticated_login(
+        {
+            "uid": "firebase-user-1",
+            "email": "owner@example.com",
+            "email_verified": True,
+        },
+        LoginMetadata(None, None, None, None, None),
+    )
+    assert result["id"] == "user-1"
+    assert captured["name"] == "record_firebase_login"
+    assert captured["params"]["p_email_verified"] is True
 
 
 def test_profile_family_and_elder_crud(client):

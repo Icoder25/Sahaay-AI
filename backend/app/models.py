@@ -1,27 +1,18 @@
-"""ORM mapping for 20260718131000_rebuild_web_schema.sql."""
+"""ORM mapping for the current Supabase migration stack."""
 
 import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, JSON, Numeric, SmallInteger, String, Table, Text, Time, UniqueConstraint, Uuid
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, Numeric, SmallInteger, String, Text, Time, UniqueConstraint, Uuid
 from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base, database_url
+from app.db import Base
 
-if database_url.startswith("sqlite"):
-    AUTH_USER_FK = "profiles.id"
-    PROFILE_AUTH_FK: tuple = ()
-else:
-    Table(
-        "users", Base.metadata,
-        Column("id", Uuid(as_uuid=False), primary_key=True),
-        schema="auth",
-    )
-    AUTH_USER_FK = "auth.users.id"
-    PROFILE_AUTH_FK = (ForeignKey(AUTH_USER_FK),)
+AUTH_USER_FK = "users.id"
+PROFILE_AUTH_FK = (ForeignKey(AUTH_USER_FK),)
 JSON_TYPE = JSONB().with_variant(JSON(), "sqlite")
 INET_TYPE = INET().with_variant(String(45), "sqlite")
 
@@ -37,6 +28,35 @@ def utcnow() -> datetime:
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class User(Base, TimestampMixin):
+    __tablename__ = "users"
+    id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True, default=uid)
+    firebase_uid: Mapped[str] = mapped_column(Text, unique=True)
+    email: Mapped[str | None] = mapped_column(Text, unique=True)
+    name: Mapped[str | None] = mapped_column(Text)
+    photo_url: Mapped[str | None] = mapped_column(Text)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    login_count: Mapped[int] = mapped_column(Integer, default=0)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    preferred_language: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, default="active")
+
+
+class LoginHistory(Base):
+    __tablename__ = "login_history"
+    id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True, default=uid)
+    firebase_uid: Mapped[str | None] = mapped_column(Text, index=True)
+    login_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    device: Mapped[str | None] = mapped_column(Text)
+    browser: Mapped[str | None] = mapped_column(Text)
+    os: Mapped[str | None] = mapped_column(Text)
+    ip_address: Mapped[str | None] = mapped_column(Text)
+    city: Mapped[str | None] = mapped_column(Text)
+    country: Mapped[str | None] = mapped_column(Text)
+    user_agent: Mapped[str | None] = mapped_column(Text)
+    session_id: Mapped[str | None] = mapped_column(Text, unique=True)
 
 
 class Profile(Base, TimestampMixin):

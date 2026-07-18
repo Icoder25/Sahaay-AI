@@ -1,17 +1,19 @@
-"""Supabase bearer-token verification and authenticated profile dependency."""
+"""Firebase bearer-token verification and authenticated profile dependency."""
 
 from dataclasses import dataclass
-from typing import Any
 
-import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt import PyJWKClient
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
 from app.db import get_db
-from app.models import Profile
+from app.models import Profile, User
+from app.services.firebase import (
+    FirebaseConfigurationError,
+    InvalidFirebaseToken,
+    verify_firebase_id_token,
+)
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -20,40 +22,33 @@ bearer = HTTPBearer(auto_error=False)
 class AuthUser:
     id: str
     email: str | None = None
-
-
-def _decode(token: str) -> dict[str, Any]:
-    settings = get_settings()
-    if not settings.supabase_url:
-        raise HTTPException(503, "Supabase authentication is not configured")
-    issuer = settings.supabase_url.rstrip("/") + "/auth/v1"
-    try:
-        header = jwt.get_unverified_header(token)
-        algorithm = header.get("alg", "RS256")
-        key = PyJWKClient(f"{issuer}/.well-known/jwks.json").get_signing_key_from_jwt(token).key
-        return jwt.decode(
-            token,
-            key,
-            algorithms=[algorithm],
-            audience=settings.supabase_jwt_audience,
-            issuer=issuer,
-        )
-    except jwt.PyJWTError as exc:
-        raise HTTPException(401, "Invalid or expired access token") from exc
-    except Exception as exc:
-        raise HTTPException(503, "Authentication key service unavailable") from exc
+    firebase_uid: str | None = None
 
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+    db: Session = Depends(get_db),
 ) -> AuthUser:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(401, "Bearer token required", headers={"WWW-Authenticate": "Bearer"})
-    claims = _decode(credentials.credentials)
-    subject = claims.get("sub")
-    if not subject:
-        raise HTTPException(401, "Token has no subject")
-    return AuthUser(id=str(subject), email=claims.get("email"))
+    try:
+        claims = verify_firebase_id_token(credentials.credentials)
+        firebase_uid = str(claims["uid"])
+        user = db.query(User).filter_by(firebase_uid=firebase_uid).first()
+    except InvalidFirebaseToken as exc:
+        raise HTTPException(401, str(exc), headers={"WWW-Authenticate": "Bearer"}) from exc
+    except (FirebaseConfigurationError, SQLAlchemyError) as exc:
+        raise HTTPException(500, "Authentication service unavailable") from exc
+
+    if user is None:
+        raise HTTPException(401, "Firebase user has not completed backend authentication")
+    if user.status != "active":
+        raise HTTPException(401, "User account is not active")
+    return AuthUser(
+        id=str(user.id),
+        email=user.email,
+        firebase_uid=firebase_uid,
+    )
 
 
 def get_current_profile(
@@ -62,6 +57,13 @@ def get_current_profile(
     profile = db.get(Profile, user.id)
     if profile is None:
         default_name = (user.email or "Sahaay User").split("@", 1)[0].strip() or "Sahaay User"
+        if db.get(User, user.id) is None:
+            db.add(User(
+                id=user.id,
+                firebase_uid=user.firebase_uid or f"test:{user.id}",
+                email=user.email,
+                name=default_name[:150],
+            ))
         profile = Profile(id=user.id, email=user.email, full_name=default_name[:150])
         db.add(profile)
         db.commit()

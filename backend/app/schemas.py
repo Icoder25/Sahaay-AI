@@ -3,11 +3,7 @@
 from datetime import date, datetime, time
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
-
-
-class ORMModel(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+from pydantic import BaseModel, EmailStr, Field
 
 
 class Citation(BaseModel):
@@ -16,18 +12,8 @@ class Citation(BaseModel):
     snippet: str | None = None
 
 
-class AuthCredentials(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8)
-
-
-class AuthRefresh(BaseModel):
-    refresh_token: str
-
-
-class PasswordRecovery(BaseModel):
-    email: EmailStr
-    redirect_to: str | None = None
+class FirebaseAuthRequest(BaseModel):
+    id_token: str = Field(min_length=1)
 
 
 class ProfileUpdate(BaseModel):

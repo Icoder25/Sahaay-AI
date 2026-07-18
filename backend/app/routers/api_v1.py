@@ -3,14 +3,13 @@
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
-import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.security import HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.concurrency import run_in_threadpool
+from pydantic import ValidationError
 from sqlalchemy import case, func, inspect
 from sqlalchemy.orm import Session
 
-from app.auth import AuthUser, bearer, get_current_profile, get_current_user
-from app.config import get_settings
+from app.auth import get_current_profile
 from app.db import get_db
 from app.models import (
     Activity, AuditLog, Conversation, DeviceToken, Elder, Family, FamilyMember, HealthScore,
@@ -18,12 +17,23 @@ from app.models import (
     WellnessEntry, uid, utcnow,
 )
 from app.schemas import (
-    AuthCredentials, AuthRefresh, ChatMessageCreate, ConversationCreate, DeviceTokenCreate,
+    ChatMessageCreate, ConversationCreate, DeviceTokenCreate,
     ElderCreate, ElderUpdate, FamilyCreate, FamilyUpdate, InvitationAccept, InvitationCreate,
-    MemberRoleUpdate, NotificationCreate, PasswordRecovery, ProfileUpdate, ReminderCompletionCreate,
+    FirebaseAuthRequest, MemberRoleUpdate, NotificationCreate, ProfileUpdate, ReminderCompletionCreate,
     ReminderCreate, ReminderSnooze, ReminderUpdate, SOSCreate, WellnessCreate,
 )
+from app.services.authentication import (
+    AuthenticationConflict,
+    AuthenticationStoreError,
+    LoginMetadata,
+    record_authenticated_login,
+)
 from app.services.ai import answer
+from app.services.firebase import (
+    FirebaseConfigurationError,
+    InvalidFirebaseToken,
+    verify_firebase_id_token,
+)
 from app.services.health import calculate_health_score, calculate_risk_signals
 from app.services.notifications import send_notification
 from app.services.scheduling import as_utc, initial_run, next_occurrence
@@ -119,68 +129,43 @@ def delete_elder_records(db: Session, elder: Elder) -> None:
     db.delete(elder)
 
 
-def auth_proxy(path: str, payload: dict[str, Any]) -> dict[str, Any]:
-    settings = get_settings()
-    key = settings.supabase_publishable_key
-    if not settings.supabase_url or not key:
-        raise HTTPException(503, "Supabase auth wrapper is not configured")
+@router.post("/auth/firebase", tags=["auth"])
+async def authenticate_firebase(request: Request) -> dict[str, Any]:
+    """Verify a Firebase ID token and atomically persist the login in Supabase."""
     try:
-        response = httpx.post(
-            f"{settings.supabase_url.rstrip('/')}/auth/v1/{path}",
-            json=payload,
-            headers={"apikey": key},
-            timeout=10,
+        body = FirebaseAuthRequest.model_validate(await request.json())
+    except (ValueError, ValidationError) as exc:
+        raise HTTPException(400, "A non-empty id_token is required") from exc
+
+    try:
+        claims = await run_in_threadpool(verify_firebase_id_token, body.id_token)
+        user_agent = request.headers.get("user-agent")
+        mobile_hint = request.headers.get("sec-ch-ua-mobile")
+        metadata = LoginMetadata(
+            device="mobile" if mobile_hint == "?1" else "desktop" if mobile_hint == "?0" else None,
+            browser=(request.headers.get("sec-ch-ua") or user_agent or "")[:1000] or None,
+            os=(request.headers.get("sec-ch-ua-platform") or "").strip('"')[:255] or None,
+            ip_address=request.client.host if request.client else None,
+            user_agent=user_agent[:2000] if user_agent else None,
         )
-    except httpx.HTTPError as exc:
-        raise HTTPException(503, "Supabase Auth is unavailable") from exc
-    if response.status_code >= 400:
-        detail = response.json().get("msg") or response.json().get("error_description") or "Authentication failed"
-        raise HTTPException(response.status_code, detail)
-    return response.json()
+        authenticated_user = await run_in_threadpool(
+            record_authenticated_login,
+            claims,
+            metadata,
+        )
+    except InvalidFirebaseToken as exc:
+        raise HTTPException(401, str(exc)) from exc
+    except AuthenticationConflict as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except (FirebaseConfigurationError, AuthenticationStoreError) as exc:
+        raise HTTPException(500, "Authentication failed") from exc
 
-
-@router.post("/auth/signup", tags=["auth"])
-def signup(body: AuthCredentials) -> dict:
-    return auth_proxy("signup", body.model_dump(mode="json"))
-
-
-@router.post("/auth/login", tags=["auth"])
-def login(body: AuthCredentials) -> dict:
-    return auth_proxy("token?grant_type=password", body.model_dump(mode="json"))
-
-
-@router.post("/auth/refresh", tags=["auth"])
-def refresh(body: AuthRefresh) -> dict:
-    return auth_proxy("token?grant_type=refresh_token", body.model_dump())
-
-
-@router.post("/auth/forgot-password", tags=["auth"])
-def forgot_password(body: PasswordRecovery) -> dict:
-    payload = body.model_dump(mode="json", exclude_none=True)
-    return auth_proxy("recover", payload)
-
-
-@router.post("/auth/logout", status_code=204, tags=["auth"])
-def logout(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer),
-    user: AuthUser = Depends(get_current_user),
-) -> Response:
-    settings = get_settings()
-    if settings.supabase_url and settings.supabase_publishable_key:
-        try:
-            response = httpx.post(
-                f"{settings.supabase_url.rstrip('/')}/auth/v1/logout",
-                headers={
-                    "apikey": settings.supabase_publishable_key,
-                    "Authorization": f"Bearer {credentials.credentials}",
-                },
-                timeout=10,
-            )
-            if response.status_code >= 400:
-                raise HTTPException(response.status_code, "Supabase logout failed")
-        except httpx.HTTPError as exc:
-            raise HTTPException(503, "Supabase Auth is unavailable") from exc
-    return Response(status_code=204)
+    session_id = authenticated_user.pop("session_id", None)
+    return {
+        "user": authenticated_user,
+        "session": {"id": session_id},
+        "token_type": "Bearer",
+    }
 
 
 @router.get("/auth/me", tags=["auth"])

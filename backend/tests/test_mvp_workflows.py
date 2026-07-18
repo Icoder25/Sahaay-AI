@@ -1,7 +1,7 @@
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.db import SessionLocal
-from app.models import Activity, Conversation, Notification, Reminder, ReminderCompletion, WellnessEntry
+from app.models import Activity, Conversation, Notification, ReminderCompletion
 from app.routers import api_v1
 from app.tasks import daily_summaries
 
